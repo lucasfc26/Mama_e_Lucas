@@ -53,6 +53,7 @@ const HANGMAN_WORDS = [
 const TERMO_WORDS = ["AMOR", "BEIJO", "DATE", "VIDA", "CASAL"];
 
 type PlayerMode = "lucas" | "mariana" | "casal";
+type LetterState = "correct" | "present" | "absent";
 
 const MEDICINE_HANGMAN_WORDS = [
   "MEDICINA",
@@ -132,6 +133,32 @@ const getGameAccentStyle = (color: string) =>
     "--game-accent-soft": `${color}1f`,
   }) as CSSProperties;
 
+const scoreGuess = (guess: string, answer: string): LetterState[] => {
+  const states: LetterState[] = Array.from({ length: guess.length }, () => "absent");
+  const remaining = new Map<string, number>();
+
+  [...answer].forEach((letter, index) => {
+    if (guess[index] === letter) {
+      states[index] = "correct";
+      return;
+    }
+
+    remaining.set(letter, (remaining.get(letter) ?? 0) + 1);
+  });
+
+  [...guess].forEach((letter, index) => {
+    if (states[index] === "correct") return;
+
+    const available = remaining.get(letter) ?? 0;
+    if (available > 0) {
+      states[index] = "present";
+      remaining.set(letter, available - 1);
+    }
+  });
+
+  return states;
+};
+
 const GAME_CARDS = [
   {
     id: "roleta",
@@ -193,8 +220,12 @@ function PlayerModePicker({
               onClick={() => onModeChange(key)}
               className="min-w-24 rounded-full border px-4 py-2 text-sm font-bold transition-all hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background"
               style={{
-                borderColor: selected ? option.color : "color-mix(in oklab, var(--color-primary) 20%, transparent)",
-                backgroundColor: selected ? `${option.color}18` : "color-mix(in oklab, white 65%, transparent)",
+                borderColor: selected
+                  ? option.color
+                  : "color-mix(in oklab, var(--color-primary) 20%, transparent)",
+                backgroundColor: selected
+                  ? `${option.color}18`
+                  : "color-mix(in oklab, white 65%, transparent)",
                 color: selected ? option.color : "var(--color-muted-foreground)",
                 boxShadow: selected ? `0 10px 24px -18px ${option.color}` : undefined,
               }}
@@ -204,6 +235,30 @@ function PlayerModePicker({
           );
         },
       )}
+    </div>
+  );
+}
+
+function HangmanDrawing({ misses }: { misses: number }) {
+  return (
+    <div className="flex w-full justify-center rounded-2xl border border-[var(--game-accent)]/20 bg-background/50 p-4">
+      <svg aria-label="Desenho da forca" className="h-64 w-48" fill="none" viewBox="0 0 180 240">
+        <g stroke="currentColor" className="text-muted-foreground/50" strokeLinecap="round">
+          <path d="M35 220H145" strokeWidth="8" />
+          <path d="M55 220V25" strokeWidth="8" />
+          <path d="M55 25H130" strokeWidth="8" />
+          <path d="M130 25V55" strokeWidth="5" />
+          <path d="M55 62L90 25" strokeWidth="5" />
+        </g>
+        <g stroke="var(--game-accent)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="7">
+          {misses >= 1 && <circle cx="130" cy="75" r="20" />}
+          {misses >= 2 && <path d="M130 95V150" />}
+          {misses >= 3 && <path d="M130 112L105 135" />}
+          {misses >= 4 && <path d="M130 112L155 135" />}
+          {misses >= 5 && <path d="M130 150L110 190" />}
+          {misses >= 6 && <path d="M130 150L150 190" />}
+        </g>
+      </svg>
     </div>
   );
 }
@@ -376,75 +431,79 @@ function Hangman() {
   return (
     <div className="glass-card rounded-3xl p-6 sm:p-8" style={accentStyle}>
       <PlayerModePicker mode={mode} onModeChange={setMode} />
-      <div className="flex flex-col items-center">
-        <p className="text-sm text-muted-foreground">Tentativas restantes</p>
-        <div className="flex gap-1 my-2">
-          {Array.from({ length: MAX }).map((_, i) => (
-            <Heart
-              key={i}
-              className={`h-6 w-6 transition-all ${i < MAX - wrong.length ? "text-[var(--game-accent)]" : "text-muted-foreground/30"}`}
-              fill="currentColor"
-            />
-          ))}
-        </div>
+      <div className="grid w-full gap-6 lg:grid-cols-[220px_1fr] lg:items-start">
+        <HangmanDrawing misses={wrong.length} />
 
-        <div className="flex flex-wrap justify-center gap-2 my-6">
-          {[...word].map((l, i) => (
-            <div
-              key={i}
-              className="w-10 h-12 sm:w-12 sm:h-14 border-b-4 border-[var(--game-accent)] flex items-center justify-center font-display text-2xl sm:text-3xl font-bold text-[var(--game-accent)]"
-            >
-              {guessed.has(l) || lost ? l : ""}
-            </div>
-          ))}
-        </div>
-
-        {done && (
-          <div className="text-center mb-4 animate-fade-up">
-            {won ? (
-              <p className="font-display text-2xl text-gradient">🎉 Você acertou, meu bem!</p>
-            ) : (
-              <p className="font-display text-2xl text-wine">
-                Quase! A palavra era <span className="text-gradient">{word}</span>
-              </p>
-            )}
-            <button
-              onClick={restart}
-              className="mt-3 px-6 py-2 rounded-full text-white font-medium hover:scale-105 transition-transform"
-              style={{ backgroundColor: config.color }}
-            >
-              Jogar de novo
-            </button>
+        <div className="flex flex-col items-center">
+          <p className="text-sm text-muted-foreground">Tentativas restantes</p>
+          <div className="flex gap-1 my-2">
+            {Array.from({ length: MAX }).map((_, i) => (
+              <Heart
+                key={i}
+                className={`h-6 w-6 transition-all ${i < MAX - wrong.length ? "text-[var(--game-accent)]" : "text-muted-foreground/30"}`}
+                fill="currentColor"
+              />
+            ))}
           </div>
-        )}
 
-        <div className="grid grid-cols-7 sm:grid-cols-9 gap-1.5 max-w-xl">
-          {"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((l) => {
-            const used = guessed.has(l);
-            const ok = used && word.includes(l);
-            const bad = used && !word.includes(l);
-            return (
+          <div className="flex flex-wrap justify-center gap-2 my-6">
+            {[...word].map((l, i) => (
+              <div
+                key={i}
+                className="w-10 h-12 sm:w-12 sm:h-14 border-b-4 border-[var(--game-accent)] flex items-center justify-center font-display text-2xl sm:text-3xl font-bold text-[var(--game-accent)]"
+              >
+                {guessed.has(l) || lost ? l : ""}
+              </div>
+            ))}
+          </div>
+
+          {done && (
+            <div className="text-center mb-4 animate-fade-up">
+              {won ? (
+                <p className="font-display text-2xl text-gradient">🎉 Você acertou, meu bem!</p>
+              ) : (
+                <p className="font-display text-2xl text-wine">
+                  Quase! A palavra era <span className="text-gradient">{word}</span>
+                </p>
+              )}
               <button
-                key={l}
-                onClick={() => press(l)}
-                disabled={used || done}
-                className={`h-9 w-9 sm:h-10 sm:w-10 rounded-lg font-semibold text-sm transition-all
+                onClick={restart}
+                className="mt-3 px-6 py-2 rounded-full text-white font-medium hover:scale-105 transition-transform"
+                style={{ backgroundColor: config.color }}
+              >
+                Jogar de novo
+              </button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-7 sm:grid-cols-9 gap-1.5 max-w-xl">
+            {"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((l) => {
+              const used = guessed.has(l);
+              const ok = used && word.includes(l);
+              const bad = used && !word.includes(l);
+              return (
+                <button
+                  key={l}
+                  onClick={() => press(l)}
+                  disabled={used || done}
+                  className={`h-9 w-9 sm:h-10 sm:w-10 rounded-lg font-semibold text-sm transition-all
                   ${ok ? "text-white" : ""}
                   ${bad ? "bg-muted text-muted-foreground line-through opacity-50" : ""}
                   ${!used ? "bg-background border hover:scale-110" : ""}
                 `}
-                style={
-                  ok
-                    ? { backgroundColor: config.color, borderColor: config.color }
-                    : !used
-                      ? { borderColor: `${config.color}55`, color: config.color }
-                      : undefined
-                }
-              >
-                {l}
-              </button>
-            );
-          })}
+                  style={
+                    ok
+                      ? { backgroundColor: config.color, borderColor: config.color }
+                      : !used
+                        ? { borderColor: `${config.color}55`, color: config.color }
+                        : undefined
+                  }
+                >
+                  {l}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
@@ -464,7 +523,6 @@ function Termo() {
   const won = guesses[guesses.length - 1] === word;
   const lost = !won && guesses.length >= MAX_TRIES;
   const done = won || lost;
-  const remaining = MAX_TRIES - guesses.length;
 
   const restart = useCallback(() => {
     setWord(pickWord(config.termoWords));
@@ -511,17 +569,41 @@ function Termo() {
     return () => window.removeEventListener("keydown", fn);
   }, [handleKey]);
 
-  const letterStatus = useMemo(() => {
-    const map = new Map<string, "correct" | "present" | "absent">();
-    guesses.forEach((g) =>
-      [...g].forEach((l, i) => {
-        const s = word[i] === l ? "correct" : word.includes(l) ? "present" : "absent";
-        const cur = map.get(l);
-        if (s === "correct" || !cur || (s === "present" && cur === "absent")) map.set(l, s);
+  const guessResults = useMemo(
+    () =>
+      guesses.map((guess) => {
+        const states = scoreGuess(guess, word);
+
+        return {
+          guess,
+          states,
+          correct: states.filter((state) => state === "correct").length,
+          present: states.filter((state) => state === "present").length,
+        };
       }),
-    );
+    [guesses, word],
+  );
+
+  const letterStatus = useMemo(() => {
+    const map = new Map<string, LetterState>();
+
+    guessResults.forEach(({ guess, states }) => {
+      [...guess].forEach((letter, index) => {
+        const state = states[index];
+        const currentState = map.get(letter);
+
+        if (
+          state === "correct" ||
+          !currentState ||
+          (state === "present" && currentState === "absent")
+        ) {
+          map.set(letter, state);
+        }
+      });
+    });
+
     return map;
-  }, [guesses, word]);
+  }, [guessResults]);
 
   const rows = Array.from({ length: MAX_TRIES }).map((_, i) => {
     if (i < guesses.length) return guesses[i];
@@ -533,40 +615,52 @@ function Termo() {
     <div className="glass-card rounded-3xl p-6 sm:p-8" style={accentStyle}>
       <PlayerModePicker mode={mode} onModeChange={setMode} />
       <div className="flex flex-col items-center">
-        <p className="text-sm text-muted-foreground">Tentativas restantes</p>
-        <div className="flex gap-1 my-2">
-          {Array.from({ length: MAX_TRIES }).map((_, i) => (
-            <Heart
-              key={i}
-              className={`h-6 w-6 transition-all ${i < remaining ? "text-[var(--game-accent)]" : "text-muted-foreground/30"}`}
-              fill="currentColor"
-            />
-          ))}
-        </div>
         <p className="text-sm text-muted-foreground mb-4">Adivinhe a palavra de {len} letras</p>
         <div className="space-y-1.5 mb-6">
-          {rows.map((row, ri) => (
-            <div key={ri} className="flex gap-1.5">
-              {[...row].map((l, ci) => {
-                const submitted = ri < guesses.length;
-                let cls = "bg-background border-[var(--game-accent)]/30 text-[var(--game-accent)]";
-                if (submitted) {
-                  if (word[ci] === l) cls = "text-white border-[var(--game-accent)]";
-                  else if (word.includes(l)) cls = "bg-[var(--game-accent-soft)] text-[var(--game-accent)] border-[var(--game-accent)]";
-                  else cls = "bg-muted text-muted-foreground border-muted";
-                }
-                return (
-                  <div
-                    key={ci}
-                    className={`w-11 h-11 sm:w-12 sm:h-12 border-2 rounded-lg flex items-center justify-center font-display font-bold text-xl uppercase transition-all ${cls}`}
-                    style={submitted && word[ci] === l ? { backgroundColor: config.color } : undefined}
-                  >
-                    {l.trim()}
+          {rows.map((row, ri) => {
+            const result = guessResults[ri];
+
+            return (
+              <div key={ri} className="space-y-1">
+                <div className="flex gap-1.5">
+                  {[...row].map((l, ci) => {
+                    const state = result?.states[ci];
+                    let cls =
+                      "bg-background border-[var(--game-accent)]/30 text-[var(--game-accent)]";
+
+                    if (state === "correct") cls = "text-white border-[var(--game-accent)]";
+                    else if (state === "present") cls = "bg-gold text-wine border-gold";
+                    else if (state === "absent")
+                      cls = "bg-muted text-muted-foreground border-muted";
+
+                    return (
+                      <div
+                        key={ci}
+                        className={`w-11 h-11 sm:w-12 sm:h-12 border-2 rounded-lg flex items-center justify-center font-display font-bold text-xl uppercase transition-all ${cls}`}
+                        style={state === "correct" ? { backgroundColor: config.color } : undefined}
+                      >
+                        {l.trim()}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {result && (
+                  <div className="flex justify-center gap-2 text-xs font-bold">
+                    <span
+                      className="rounded-full px-2 py-0.5 text-white"
+                      style={{ backgroundColor: config.color }}
+                    >
+                      {result.correct} no lugar
+                    </span>
+                    <span className="rounded-full bg-gold px-2 py-0.5 text-wine">
+                      {result.present} fora do lugar
+                    </span>
                   </div>
-                );
-              })}
-            </div>
-          ))}
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {done && (
@@ -602,9 +696,10 @@ function Termo() {
               )}
               {[...row].map((l) => {
                 const s = letterStatus.get(l);
-                let cls = "bg-background border text-[var(--game-accent)] border-[var(--game-accent)]";
+                let cls =
+                  "bg-background border text-[var(--game-accent)] border-[var(--game-accent)]";
                 if (s === "correct") cls = "text-white";
-                else if (s === "present") cls = "bg-[var(--game-accent-soft)] text-[var(--game-accent)] border border-[var(--game-accent)]";
+                else if (s === "present") cls = "bg-gold text-wine border border-gold";
                 else if (s === "absent") cls = "bg-muted text-muted-foreground";
                 return (
                   <button
