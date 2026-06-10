@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   CircleHelp,
@@ -52,6 +52,86 @@ const HANGMAN_WORDS = [
 ];
 const TERMO_WORDS = ["AMOR", "BEIJO", "DATE", "VIDA", "CASAL"];
 
+type PlayerMode = "lucas" | "mariana" | "casal";
+
+const MEDICINE_HANGMAN_WORDS = [
+  "MEDICINA",
+  "HOSPITAL",
+  "ESTETOSCOPIO",
+  "CIRURGIA",
+  "ANATOMIA",
+  "DIAGNOSTICO",
+  "PLANTAO",
+  "RECEITA",
+  "VACINA",
+  "CARDIOLOGIA",
+];
+
+const COMPUTING_HANGMAN_WORDS = [
+  "COMPUTADOR",
+  "ALGORITMO",
+  "PROGRAMACAO",
+  "TECLADO",
+  "SERVIDOR",
+  "INTERNET",
+  "CODIGO",
+  "SOFTWARE",
+  "BANCO",
+  "FRONTEND",
+];
+
+const MEDICINE_TERMO_WORDS = [
+  "SAUDE",
+  "PULSO",
+  "FEBRE",
+  "EXAME",
+  "CURAR",
+  "SORO",
+  "RAIOX",
+  "MEDICO",
+];
+
+const COMPUTING_TERMO_WORDS = [
+  "DADOS",
+  "LOGIN",
+  "SENHA",
+  "NUVEM",
+  "MOUSE",
+  "TECLA",
+  "REDE",
+  "PIXEL",
+  "CACHE",
+];
+
+const GAME_MODES = {
+  lucas: {
+    label: "Lucas",
+    color: "#2563eb",
+    hangmanWords: MEDICINE_HANGMAN_WORDS,
+    termoWords: MEDICINE_TERMO_WORDS,
+  },
+  mariana: {
+    label: "Mariana",
+    color: "#16a34a",
+    hangmanWords: COMPUTING_HANGMAN_WORDS,
+    termoWords: COMPUTING_TERMO_WORDS,
+  },
+  casal: {
+    label: "Casal",
+    color: "#dc2626",
+    hangmanWords: [...HANGMAN_WORDS, ...MEDICINE_HANGMAN_WORDS, ...COMPUTING_HANGMAN_WORDS],
+    termoWords: [...TERMO_WORDS, ...MEDICINE_TERMO_WORDS, ...COMPUTING_TERMO_WORDS],
+  },
+} as const;
+
+const pickWord = (words: readonly string[]) => words[Math.floor(Math.random() * words.length)];
+
+const getGameAccentStyle = (color: string) =>
+  ({
+    "--game-accent": color,
+    "--game-accent-soft": `${color}1f`,
+  }) as CSSProperties;
+
 const GAME_CARDS = [
   {
     id: "roleta",
@@ -89,6 +169,41 @@ function SectionTitle({ children, sub }: { children: React.ReactNode; sub?: stri
     <div className="text-center mb-8">
       <h2 className="font-display text-3xl sm:text-4xl font-bold text-gradient">{children}</h2>
       {sub && <p className="text-muted-foreground mt-2">{sub}</p>}
+    </div>
+  );
+}
+
+function PlayerModePicker({
+  mode,
+  onModeChange,
+}: {
+  mode: PlayerMode;
+  onModeChange: (mode: PlayerMode) => void;
+}) {
+  return (
+    <div className="mb-6 flex flex-wrap justify-center gap-2">
+      {(Object.entries(GAME_MODES) as Array<[PlayerMode, (typeof GAME_MODES)[PlayerMode]]>).map(
+        ([key, option]) => {
+          const selected = key === mode;
+
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onModeChange(key)}
+              className="min-w-24 rounded-full border px-4 py-2 text-sm font-bold transition-all hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background"
+              style={{
+                borderColor: selected ? option.color : "color-mix(in oklab, var(--color-primary) 20%, transparent)",
+                backgroundColor: selected ? `${option.color}18` : "color-mix(in oklab, white 65%, transparent)",
+                color: selected ? option.color : "var(--color-muted-foreground)",
+                boxShadow: selected ? `0 10px 24px -18px ${option.color}` : undefined,
+              }}
+            >
+              {option.label}
+            </button>
+          );
+        },
+      )}
     </div>
   );
 }
@@ -233,9 +348,10 @@ function Roulette() {
 
 /* ---------- Forca ---------- */
 function Hangman() {
-  const [word, setWord] = useState(
-    () => HANGMAN_WORDS[Math.floor(Math.random() * HANGMAN_WORDS.length)],
-  );
+  const [mode, setMode] = useState<PlayerMode>("casal");
+  const config = GAME_MODES[mode];
+  const accentStyle = getGameAccentStyle(config.color);
+  const [word, setWord] = useState(() => pickWord(config.hangmanWords));
   const [guessed, setGuessed] = useState<Set<string>>(new Set());
   const wrong = [...guessed].filter((l) => !word.includes(l));
   const MAX = 6;
@@ -248,20 +364,25 @@ function Hangman() {
     setGuessed(new Set([...guessed, l]));
   };
 
-  const restart = () => {
-    setWord(HANGMAN_WORDS[Math.floor(Math.random() * HANGMAN_WORDS.length)]);
+  const restart = useCallback(() => {
+    setWord(pickWord(config.hangmanWords));
     setGuessed(new Set());
-  };
+  }, [config.hangmanWords]);
+
+  useEffect(() => {
+    restart();
+  }, [restart]);
 
   return (
-    <div className="glass-card rounded-3xl p-6 sm:p-8">
+    <div className="glass-card rounded-3xl p-6 sm:p-8" style={accentStyle}>
+      <PlayerModePicker mode={mode} onModeChange={setMode} />
       <div className="flex flex-col items-center">
         <p className="text-sm text-muted-foreground">Tentativas restantes</p>
         <div className="flex gap-1 my-2">
           {Array.from({ length: MAX }).map((_, i) => (
             <Heart
               key={i}
-              className={`h-6 w-6 transition-all ${i < MAX - wrong.length ? "text-primary" : "text-muted-foreground/30"}`}
+              className={`h-6 w-6 transition-all ${i < MAX - wrong.length ? "text-[var(--game-accent)]" : "text-muted-foreground/30"}`}
               fill="currentColor"
             />
           ))}
@@ -271,7 +392,7 @@ function Hangman() {
           {[...word].map((l, i) => (
             <div
               key={i}
-              className="w-10 h-12 sm:w-12 sm:h-14 border-b-4 border-primary flex items-center justify-center font-display text-2xl sm:text-3xl font-bold"
+              className="w-10 h-12 sm:w-12 sm:h-14 border-b-4 border-[var(--game-accent)] flex items-center justify-center font-display text-2xl sm:text-3xl font-bold text-[var(--game-accent)]"
             >
               {guessed.has(l) || lost ? l : ""}
             </div>
@@ -289,7 +410,8 @@ function Hangman() {
             )}
             <button
               onClick={restart}
-              className="mt-3 px-6 py-2 rounded-full bg-primary text-primary-foreground font-medium hover:scale-105 transition-transform"
+              className="mt-3 px-6 py-2 rounded-full text-white font-medium hover:scale-105 transition-transform"
+              style={{ backgroundColor: config.color }}
             >
               Jogar de novo
             </button>
@@ -307,10 +429,17 @@ function Hangman() {
                 onClick={() => press(l)}
                 disabled={used || done}
                 className={`h-9 w-9 sm:h-10 sm:w-10 rounded-lg font-semibold text-sm transition-all
-                  ${ok ? "bg-primary text-primary-foreground" : ""}
+                  ${ok ? "text-white" : ""}
                   ${bad ? "bg-muted text-muted-foreground line-through opacity-50" : ""}
-                  ${!used ? "bg-background border border-primary/20 hover:bg-primary/10 hover:scale-110" : ""}
+                  ${!used ? "bg-background border hover:scale-110" : ""}
                 `}
+                style={
+                  ok
+                    ? { backgroundColor: config.color, borderColor: config.color }
+                    : !used
+                      ? { borderColor: `${config.color}55`, color: config.color }
+                      : undefined
+                }
               >
                 {l}
               </button>
@@ -324,9 +453,10 @@ function Hangman() {
 
 /* ---------- Termo ---------- */
 function Termo() {
-  const [word, setWord] = useState(
-    () => TERMO_WORDS[Math.floor(Math.random() * TERMO_WORDS.length)],
-  );
+  const [mode, setMode] = useState<PlayerMode>("casal");
+  const config = GAME_MODES[mode];
+  const accentStyle = getGameAccentStyle(config.color);
+  const [word, setWord] = useState(() => pickWord(config.termoWords));
   const [guesses, setGuesses] = useState<string[]>([]);
   const [current, setCurrent] = useState("");
   const MAX_TRIES = 6;
@@ -334,12 +464,41 @@ function Termo() {
   const won = guesses[guesses.length - 1] === word;
   const lost = !won && guesses.length >= MAX_TRIES;
   const done = won || lost;
+  const remaining = MAX_TRIES - guesses.length;
 
-  const submit = () => {
+  const restart = useCallback(() => {
+    setWord(pickWord(config.termoWords));
+    setGuesses([]);
+    setCurrent("");
+  }, [config.termoWords]);
+
+  useEffect(() => {
+    restart();
+  }, [restart]);
+
+  const submit = useCallback(() => {
     if (current.length !== len || done) return;
     setGuesses([...guesses, current]);
     setCurrent("");
-  };
+  }, [current, done, guesses, len]);
+
+  const handleKey = useCallback(
+    (key: string) => {
+      if (done) return;
+      if (key === "ENTER") {
+        submit();
+        return;
+      }
+      if (key === "BACK") {
+        setCurrent((value) => value.slice(0, -1));
+        return;
+      }
+      if (/^[A-Z]$/.test(key)) {
+        setCurrent((value) => (value.length < len ? `${value}${key}` : value));
+      }
+    },
+    [done, len, submit],
+  );
 
   useEffect(() => {
     const fn = (e: KeyboardEvent) => {
@@ -350,7 +509,7 @@ function Termo() {
     };
     window.addEventListener("keydown", fn);
     return () => window.removeEventListener("keydown", fn);
-  });
+  }, [handleKey]);
 
   const letterStatus = useMemo(() => {
     const map = new Map<string, "correct" | "present" | "absent">();
@@ -364,12 +523,6 @@ function Termo() {
     return map;
   }, [guesses, word]);
 
-  const restart = () => {
-    setWord(TERMO_WORDS[Math.floor(Math.random() * TERMO_WORDS.length)]);
-    setGuesses([]);
-    setCurrent("");
-  };
-
   const rows = Array.from({ length: MAX_TRIES }).map((_, i) => {
     if (i < guesses.length) return guesses[i];
     if (i === guesses.length) return current.padEnd(len, " ");
@@ -377,24 +530,36 @@ function Termo() {
   });
 
   return (
-    <div className="glass-card rounded-3xl p-6 sm:p-8">
+    <div className="glass-card rounded-3xl p-6 sm:p-8" style={accentStyle}>
+      <PlayerModePicker mode={mode} onModeChange={setMode} />
       <div className="flex flex-col items-center">
+        <p className="text-sm text-muted-foreground">Tentativas restantes</p>
+        <div className="flex gap-1 my-2">
+          {Array.from({ length: MAX_TRIES }).map((_, i) => (
+            <Heart
+              key={i}
+              className={`h-6 w-6 transition-all ${i < remaining ? "text-[var(--game-accent)]" : "text-muted-foreground/30"}`}
+              fill="currentColor"
+            />
+          ))}
+        </div>
         <p className="text-sm text-muted-foreground mb-4">Adivinhe a palavra de {len} letras</p>
         <div className="space-y-1.5 mb-6">
           {rows.map((row, ri) => (
             <div key={ri} className="flex gap-1.5">
               {[...row].map((l, ci) => {
                 const submitted = ri < guesses.length;
-                let cls = "bg-background border-primary/20 text-foreground";
+                let cls = "bg-background border-[var(--game-accent)]/30 text-[var(--game-accent)]";
                 if (submitted) {
-                  if (word[ci] === l) cls = "bg-primary text-primary-foreground border-primary";
-                  else if (word.includes(l)) cls = "bg-gold text-wine border-gold";
+                  if (word[ci] === l) cls = "text-white border-[var(--game-accent)]";
+                  else if (word.includes(l)) cls = "bg-[var(--game-accent-soft)] text-[var(--game-accent)] border-[var(--game-accent)]";
                   else cls = "bg-muted text-muted-foreground border-muted";
                 }
                 return (
                   <div
                     key={ci}
                     className={`w-11 h-11 sm:w-12 sm:h-12 border-2 rounded-lg flex items-center justify-center font-display font-bold text-xl uppercase transition-all ${cls}`}
+                    style={submitted && word[ci] === l ? { backgroundColor: config.color } : undefined}
                   >
                     {l.trim()}
                   </div>
@@ -415,7 +580,8 @@ function Termo() {
             )}
             <button
               onClick={restart}
-              className="mt-3 px-6 py-2 rounded-full bg-primary text-primary-foreground font-medium hover:scale-105 transition-transform"
+              className="mt-3 px-6 py-2 rounded-full text-white font-medium hover:scale-105 transition-transform"
+              style={{ backgroundColor: config.color }}
             >
               Nova palavra
             </button>
@@ -428,22 +594,24 @@ function Termo() {
               {ri === 2 && (
                 <button
                   onClick={() => handleKey("ENTER")}
-                  className="px-2 h-10 rounded-md bg-primary text-primary-foreground text-xs font-bold"
+                  className="px-2 h-10 rounded-md text-white text-xs font-bold"
+                  style={{ backgroundColor: config.color }}
                 >
                   ↵
                 </button>
               )}
               {[...row].map((l) => {
                 const s = letterStatus.get(l);
-                let cls = "bg-background border border-primary/20";
-                if (s === "correct") cls = "bg-primary text-primary-foreground";
-                else if (s === "present") cls = "bg-gold text-wine";
+                let cls = "bg-background border text-[var(--game-accent)] border-[var(--game-accent)]";
+                if (s === "correct") cls = "text-white";
+                else if (s === "present") cls = "bg-[var(--game-accent-soft)] text-[var(--game-accent)] border border-[var(--game-accent)]";
                 else if (s === "absent") cls = "bg-muted text-muted-foreground";
                 return (
                   <button
                     key={l}
                     onClick={() => handleKey(l)}
                     className={`w-7 h-10 sm:w-8 sm:h-10 rounded-md text-sm font-bold transition-all hover:scale-110 ${cls}`}
+                    style={s === "correct" ? { backgroundColor: config.color } : undefined}
                   >
                     {l}
                   </button>
