@@ -77,9 +77,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Nosso Amor — Dia dos Namorados" },
+      { title: "Nosso Amor — 2 Anos de Namoro" },
       { name: "description", content: "Um cantinho especial pra celebrar a nossa história, brincar e caçar tesouros juntos." },
-      { property: "og:title", content: "Nosso Amor — Dia dos Namorados" },
+      { property: "og:title", content: "Nosso Amor — 2 Anos de Namoro" },
       { property: "og:description", content: "Nossa história, games do casal e caça ao tesouro." },
       { property: "og:type", content: "website" },
     ],

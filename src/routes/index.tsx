@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Heart, Lock, Sparkles } from "lucide-react";
+import { CounterFireworks } from "@/components/CounterFireworks";
 import { Layout } from "@/components/Layout";
 import chapter01Image from "../public/1 - Pedido de Namoro.jpeg";
 import chapter02Image from "../public/2 - Ela Aceitou.jpeg";
@@ -138,6 +139,7 @@ function useTimeTogether() {
 
 function Counter() {
   const t = useTimeTogether();
+  const showFireworks = t.years >= 2;
   const items = [
     { label: "anos", value: t.years },
     { label: "meses", value: t.months },
@@ -147,17 +149,20 @@ function Counter() {
     { label: "seg", value: t.seconds },
   ];
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-4">
-      {items.map((it) => (
-        <div key={it.label} className="glass-card rounded-2xl p-3 sm:p-4 text-center">
-          <div className="text-2xl sm:text-4xl font-bold text-gradient font-display tabular-nums">
-            {String(it.value).padStart(2, "0")}
+    <div className="relative py-6 px-2">
+      {showFireworks && <CounterFireworks />}
+      <div className="relative z-10 grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-4">
+        {items.map((it) => (
+          <div key={it.label} className="glass-card rounded-2xl p-3 sm:p-4 text-center">
+            <div className="text-2xl sm:text-4xl font-bold text-gradient font-display tabular-nums">
+              {String(it.value).padStart(2, "0")}
+            </div>
+            <div className="text-xs uppercase tracking-wider text-muted-foreground mt-1">
+              {it.label}
+            </div>
           </div>
-          <div className="text-xs uppercase tracking-wider text-muted-foreground mt-1">
-            {it.label}
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
@@ -203,7 +208,7 @@ function HistoriaPage() {
     <Layout>
       <section className="mx-auto max-w-6xl px-4 py-12 sm:py-20 text-center">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium animate-fade-up">
-          <Sparkles className="h-4 w-4" /> Feliz Dia dos Namorados, meu bem
+          <Sparkles className="h-4 w-4" /> Feliz 2 anos de namoro, meu bem
         </div>
         <h1 className="font-display text-5xl sm:text-7xl font-bold mt-6 animate-fade-up text-gradient">
           Nossa História
